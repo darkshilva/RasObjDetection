@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[13]:
+# In[105]:
 
 
 ######## Picamera Object Detection Using Tensorflow Classifier #########
@@ -21,7 +21,7 @@
 ## https://github.com/datitran/object_detector_app/blob/master/object_detection_app.py
 
 
-# In[14]:
+# In[106]:
 
 
 # Import packages
@@ -33,38 +33,40 @@ import numpy as np
 import tensorflow as tf
 import argparse
 import sys
+import time
+import psutil as sys_info 
 
 
-# In[15]:
+# In[107]:
 
 
-# Set up camera constants
+# Set up images resolution
 IM_WIDTH = 1920
 IM_HEIGHT = 1080
-#IM_WIDTH = 640    Use smaller resolution for
-#IM_HEIGHT = 480   slightly faster framerate
+#IM_WIDTH = 640    
+#IM_HEIGHT = 480   
 
 
-# In[16]:
+# In[108]:
 
 
-# Select camera type (if user enters --usbcam when calling this script,
-# a USB webcam will be used)
+# Select camera type (trying feature: if user enters --webcam when calling this script,
+# a webcam will be used)
 #camera_type = 'picamera'
-''' #testing feature to run program from terminal with --usb or
+''' #testing feature to run program from terminal with --webcam
 parser = argparse.ArgumentParser()
 parser.add_argument('--usbcam', help='Use a USB webcam instead of picamera',
                     action='store_true')
 args = parser.parse_args()
 if args.usbcam:
-    camera_type = 'usb'
+    camera_type = 'webcam'
  '''
-camera_type='usb'
+camera_type='webcam'
 # This is needed since the working directory is the object_detection folder.
 sys.path.append('..')
 
 
-# In[17]:
+# In[109]:
 
 
 # Import utilites
@@ -72,7 +74,7 @@ from utils import label_map_util
 from utils import visualization_utils as vis_util
 
 
-# In[18]:
+# In[110]:
 
 
 # Name of the directory containing the object detection module we're using
@@ -92,13 +94,13 @@ PATH_TO_LABELS = os.path.join(CWD_PATH,'data','mscoco_label_map.pbtxt')
 NUM_CLASSES = 90
 
 
-# In[19]:
+# In[111]:
 
 
 ## Load the label map.
 # Label maps map indices to category names, so that when the convolution
-# network predicts `5`, we know that this corresponds to `airplane`.
-# Here we use internal utility functions, but anything that returns a
+# network predicts `5`, we know that this corresponds to `aircraft`.
+# This code use internal utility functions, but anything that returns a
 # dictionary mapping integers to appropriate string labels would be fine
 label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
 categories = label_map_util.convert_label_map_to_categories(label_map, max_num_classes=NUM_CLASSES, use_display_name=True)
@@ -116,7 +118,7 @@ with detection_graph.as_default():
     sess = tf.Session(graph=detection_graph)
 
 
-# In[20]:
+# In[112]:
 
 
 # Define input and output tensors (i.e. data) for the object detection classifier
@@ -137,26 +139,38 @@ detection_classes = detection_graph.get_tensor_by_name('detection_classes:0')
 num_detections = detection_graph.get_tensor_by_name('num_detections:0')
 
 
-# In[21]:
+# In[113]:
 
 
 
 # Initialize frame rate calculation
-frame_rate_calc = 1
+frame_rate = 1
 freq = cv2.getTickFrequency()
 font = cv2.FONT_HERSHEY_SIMPLEX
 
 
-# In[22]:
+# In[114]:
 
 
 
-# I basically copy+pasted the code for the object
+#basically copy+pasted the code for the object
 # detection loop twice, and made one work for Picamera and the other work
 # for USB.
 
 
-# In[23]:
+# In[115]:
+
+
+#Initialize time logging
+time_local = time.localtime() # get struct_time
+time_string = time.strftime("%m/%d/%Y, %H:%M:%S", time_local)
+
+#Initialize cpu and memory using logging
+sys_info_cpu=sys_info.cpu_percent()
+sys_info_ram=sys_info.virtual_memory()[2] #2 = percent, 1=
+
+
+# In[116]:
 
 
 # piCamera
@@ -194,14 +208,15 @@ if camera_type == 'picamera':
             line_thickness=8,
             min_score_thresh=0.40)
 
-        cv2.putText(frame,"FPS: {0:.2f}".format(frame_rate_calc),(30,50),font,1,(255,255,0),2,cv2.LINE_AA)
+        cv2.putText(frame,"FPS: {0:.2f}".format(frame_rate),(30,50),font,1,(255,255,0),2,cv2.LINE_AA)
+     
 
         # All the results have been drawn on the frame, so it's time to display it.
         cv2.imshow('Object detector', frame)
 
         t2 = cv2.getTickCount()
         time1 = (t2-t1)/freq
-        frame_rate_calc = 1/time1
+        frame_rate = 1/time1
 
         # Press 'q' to quit
         if cv2.waitKey(1) == ord('q'):
@@ -212,23 +227,23 @@ if camera_type == 'picamera':
     camera.close()
 
 
-# In[24]:
+# In[117]:
 
 
-if camera_type == 'usb':
-    # Initialize USB webcam feed, 1= back camera, 0 = front camera (surfacebook 2)
+if camera_type == 'webcam':
+    # Initialize webcam feed, 1= back camera, 0 = front camera (surfacebook 2)
     camera = cv2.VideoCapture(1)
     #camera = cv2.VideoCapture('test_video.mp4')
     #replace with video.mp4 for offline processing
     ret = camera.set(3,IM_WIDTH)
     ret = camera.set(4,IM_HEIGHT)
+    
     #Initialize output video
     # VideoWriter is the responsible of creating a copy of the video
     # used for the detections but with the detections overlays. Keep in
     # mind the frame size has to be the same as original video.
-    out = cv2.VideoWriter('object_detected_result.avi', cv2.VideoWriter_fourcc(
-        'M', 'J', 'P', 'G'), 10, (IM_WIDTH, IM_HEIGHT))
-    
+    out = cv2.VideoWriter('object_detected_result.avi', cv2.VideoWriter_fourcc(*'XVID'), 10, (IM_WIDTH, IM_HEIGHT))
+    #VideoWriter('name.avi,codec,FPS,(width,height)')
     while(True):
 
         t1 = cv2.getTickCount()
@@ -252,20 +267,27 @@ if camera_type == 'usb':
             category_index,
             use_normalized_coordinates=True,
             line_thickness=8,
-            min_score_thresh=0.85)
+            min_score_thresh=0.45)
 
-        cv2.putText(frame,"FPS: {0:.2f}".format(frame_rate_calc),(30,50),font,1,(255,255,0),2,cv2.LINE_AA)
-        
+        cv2.putText(frame,"FPS: {0:.2f}".format(frame_rate),(30,50),font,1,(255,255,0),2,cv2.LINE_AA)
+        cv2.putText(frame,time_string,(250,50),font,1,(255,255,0),2,cv2.LINE_AA)
+        cv2.putText(frame,"CPU: {0:.2f}".format(sys_info_cpu),(750,50),font,1,(255,255,0),2,cv2.LINE_AA)
+        cv2.putText(frame,"RAM: {0:.2f}".format(sys_info_ram),(950,50),font,1,(255,255,0),2,cv2.LINE_AA)
         # All the results have been drawn on the frame, so it's time to display it.
-        cv2.imshow('Object detector', frame)
+        cv2.imshow('Object Detector QKT v0.1', frame)
+        #write the result video
         # https://www.learnopencv.com/why-does-opencv-use-bgr-color-format/
-        color_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        output_rgb = cv2.cvtColor(color_frame, cv2.COLOR_RGB2BGR)
-        out.write(output_rgb)
+        #color_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        #output_rgb = cv2.cvtColor(color_frame, cv2.COLOR_RGB2BGR)
+        out.write(frame)
 
         t2 = cv2.getTickCount()
         time1 = (t2-t1)/freq
-        frame_rate_calc = 1/time1
+        frame_rate = 1/time1 #update Frame rate
+        time_local = time.localtime() # update local time
+        time_string = time.strftime("%m/%d/%Y, %H:%M:%S", time_local)
+        sys_info_cpu=sys_info.cpu_percent() #update cpu and ram using
+        sys_info_ram=sys_info.virtual_memory()[2]
 
         # Press 'q' to quit
         if cv2.waitKey(1) == ord('q'):
@@ -276,12 +298,6 @@ if camera_type == 'usb':
 
 
 cv2.destroyAllWindows()
-
-
-# In[ ]:
-
-
-
 
 
 # In[ ]:
